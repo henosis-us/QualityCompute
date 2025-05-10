@@ -1,0 +1,85 @@
+services:
+  quality-blue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quality-compute-backend:blue
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/data/quality_compute.db
+    expose:
+      - "5002"
+    volumes:
+      - ./db_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  quality-green:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quality-compute-backend:green
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/data/quality_compute.db
+    expose:
+      - "5002"
+    volumes:
+      - ./db_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  stripe-cli:
+    image: stripe/stripe-cli
+    command: listen --forward-to quality-blue:5002/payments/webhook/stripe
+    networks:
+      - app-network
+    depends_on:
+      - quality-blue
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount your NGINX config file
+      - C:/docker_data/nginx/certs/qualitycompute.henosis.us:/etc/nginx/ssl/qualitycompute.henosis.us:ro  # Mount the simple cert directory
+    networks:
+      - app-network
+    depends_on:
+      - quality-blue
+      - quality-green
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge

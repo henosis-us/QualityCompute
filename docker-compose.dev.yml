@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev  # Use or create a dev Dockerfile for development dependencies
+      args:
+        - OPENAI_API_KEY=${OPENAI_API_KEY}  # Pass API keys or other args for dev
+    ports:
+      - "5002:5002"  # Map host port 5002 to container port 5002 for direct access
+    volumes:
+      - .:/usr/src/app  # Bind mount the entire project for code changes
+      - type: bind
+        source: ./dev_persistent_data  # Use a separate dev data directory on host
+        target: /usr/src/app/data
+    environment:
+      - FLASK_ENV=development  # Set Flask to development mode
+      - FLASK_DEBUG=1  # Enable debug mode for auto-reloading
+      - DB_PATH=/data/quality_compute.db  # Path for database, consistent with production
+      - PORT=5002  # Match the app's port from your QualityCompute code
+      - GUNICORN_WORKERS=2  # Reduced workers for dev to save resources
+      - GUNICORN_THREADS=2
+    env_file:
+      - .env.dev  # Use a separate env file for dev-specific variables (e.g., API keys)
+    command: >  # Run Flask dev server for auto-reloading; adjust if using Gunicorn for dev
+      flask run --host=0.0.0.0 --port=5002
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    driver: bridge
