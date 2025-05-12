@@ -9,6 +9,7 @@ from functools import wraps
 import logging
 from utils import send_email_notification
 import traceback
+
 load_dotenv()
 
 payments_bp = Blueprint('payments', __name__)
@@ -44,6 +45,63 @@ def token_required(f):
         except Exception:
             return jsonify({"error": "Token verification failed"}), 401
     return decorated
+
+# New endpoint for creating Stripe Checkout Session
+@payments_bp.route('/create-checkout-session', methods=['POST'])
+@token_required
+def create_checkout_session(user_id):
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+    
+    data = request.get_json()
+    credits = data.get("credits")
+    
+    if not isinstance(credits, (int, float)) or credits <= 0:
+        return jsonify({"error": "Invalid 'credits' field. Must be a positive number."}), 400
+    
+    try:
+        # Get frontend base URL from environment variables
+        frontend_base_url = os.environ.get("REACT_APP_FRONTEND_URL", "https://qualitycompute.henosis.us")
+        success_url = f"{frontend_base_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{frontend_base_url}/payment-cancelled"
+        
+        # Calculate amount: $1.10 per credit (including 10% margin), convert to cents
+        amount_per_credit_cents = 110  # $1.10 in cents
+        quantity = int(credits)  # Ensure quantity is an integer
+        
+        # Create Stripe Checkout Session
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],  # Supports card payments; add more if needed
+            line_items=[
+                {
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': 'Compute Credits',
+                        },
+                        'unit_amount': amount_per_credit_cents,  # Unit amount in cents per credit
+                    },
+                    'quantity': quantity,  # Number of credits to purchase
+                },
+            ],
+            mode='payment',
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                'user_id': user_id,
+                'credits_purchased': credits  # Store credits for webhook processing
+            }
+        )
+        
+        # Return the session URL for redirection
+        return jsonify({'url': session.url}), 200
+    
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating checkout session: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error creating checkout session: {str(e)}")
+        return jsonify({"error": "Server error"}), 500
 
 @payments_bp.route('/create_payment_intent', methods=['POST'])
 def create_payment_intent():
