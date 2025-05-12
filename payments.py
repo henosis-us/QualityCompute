@@ -61,7 +61,7 @@ def create_checkout_session(user_id):
     
     try:
         # Get frontend base URL from environment variables
-        frontend_base_url = os.environ.get("REACT_APP_FRONTEND_URL", "https://qualitycompute.henosis.us")
+        frontend_base_url = os.environ.get("REACT_APP_FRONTEND_URL", "http://localhost:3000")
         success_url = f"{frontend_base_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
         cancel_url = f"{frontend_base_url}/payment-cancelled"
         
