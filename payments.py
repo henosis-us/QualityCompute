@@ -1,3 +1,4 @@
+# payments.py
 import stripe
 import os
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from functools import wraps
 import logging
 from utils import send_email_notification
 import traceback
+import json  # Import json for payload logging
 
 load_dotenv()
 
@@ -20,7 +22,7 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "your_jwt_secret_here")
 
 stripe.api_key = STRIPE_SECRET_KEY
 
-# Configure logging
+# Configure logging with more detailed output
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ def create_checkout_session(user_id):
     
     try:
         # Get frontend base URL from environment variables
-        frontend_base_url = os.environ.get("REACT_APP_FRONTEND_URL", "http://localhost:3000")
+        frontend_base_url = os.environ.get("REACT_APP_FRONTEND_URL", "https://qualitycompute.henosis.us")
         success_url = f"{frontend_base_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
         cancel_url = f"{frontend_base_url}/payment-cancelled"
         
@@ -92,6 +94,9 @@ def create_checkout_session(user_id):
                 'credits_purchased': credits  # Store credits for webhook processing
             }
         )
+        
+        # Log successful session creation for debugging
+        logger.info(f"Checkout session created successfully for user {user_id} with session ID {session.id}")
         
         # Return the session URL for redirection
         return jsonify({'url': session.url}), 200
@@ -147,29 +152,46 @@ def stripe_webhook():
     payload = request.get_data(as_text=True)
     sig_header = request.headers.get('Stripe-Signature')
     
+    # Log the incoming webhook request for debugging
+    logger.info(f"Received Stripe webhook request: Payload={payload[:200]}... (truncated), Signature Header={sig_header}")
+    
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-    except ValueError:
-        logger.error("Invalid webhook payload")
+        
+        # Log successful event construction
+        logger.info(f"Webhook event constructed successfully. Event type: {event['type']}")
+        
+    except ValueError as e:
+        logger.error(f"Invalid webhook payload: {str(e)}")
+        logger.error(f"Payload received: {payload}")
         return jsonify({"error": "Invalid payload"}), 400
-    except stripe.error.SignatureVerificationError:
-        logger.error("Webhook signature verification failed")
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Webhook signature verification failed: {str(e)}")
+        logger.error(f"Signature header: {sig_header}")
         return jsonify({"error": "Signature verification failed"}), 400
+    except Exception as e:
+        logger.error(f"Error constructing webhook event: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Failed to construct webhook event"}), 400
 
-    if event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        payment_intent_id = payment_intent.id
-        user_id = payment_intent.metadata.get('user_id')
-        credits_to_add_str = payment_intent.metadata.get('credits_to_add', '0')
+    # Log the full event for debugging (use with caution in production due to sensitive data)
+    logger.info(f"Processing event: {json.dumps(event, indent=2)}")
+    
+    if event['type'] == 'checkout.session.completed':  # Handle checkout session completed event
+        session = event['data']['object']
+        payment_intent_id = session.get('payment_intent')  # Get payment intent ID from session
+        metadata = session.get('metadata', {})
+        user_id = metadata.get('user_id')
+        credits_to_add_str = metadata.get('credits_purchased', '0')  # Extract from metadata
 
         if not user_id:
-            logger.error("No user_id in metadata")
+            logger.error("No user_id in metadata. Event details: %s", json.dumps(metadata))
             return jsonify({"error": "No user_id in metadata"}), 400
 
         try:
             credits_to_add = float(credits_to_add_str)
         except ValueError:
-            logger.error(f"Invalid credits_to_add: {credits_to_add_str}")
+            logger.error(f"Invalid credits_purchased in metadata: {credits_to_add_str}")
             credits_to_add = 0.0
 
         conn = None
@@ -231,6 +253,7 @@ def stripe_webhook():
                 conn.close()
 
     else:
+        logger.info(f"Event type '{event['type']}' not handled. Ignoring.")
         return jsonify({"message": "Event not handled"}), 200
 
 @payments_bp.route('/create_payment_for_credits', methods=['POST'])

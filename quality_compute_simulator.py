@@ -2088,18 +2088,18 @@ def admin_get_users():
         return jsonify({"error": "Failed to retrieve users"}), 500
 # --- Run the Flask App ---
 if __name__ == '__main__':
-         print(f"--- Starting Quality Compute API Simulator ---")
-         print(f"--- Listening on: 0.0.0.0:5002 ---")
-         print(f"--- Database Path: {DB_PATH} ---")
-         print(f"--- Judge Model: {JUDGE_MODEL} ---")  # Fallback judge model
-         print(f"--- Default N for Best-of: {DEFAULT_N_VALUE} ---")
-         print(f"--- Max Workers for Parallel Calls: {MAX_WORKERS} ---")
-         print("--- Configured Providers & Status ---")
-         print(f"    - OpenAI Base URL: {MODEL_API_BASE_URL} {'(Key Found)' if OPENAI_API_KEY != 'dummy-openai-key' else '(Key MISSING!)'}")
-         print(f"    - xAI Base URL: {XAI_API_BASE_URL} {'(Key Found)' if XAI_API_KEY else '(Key MISSING!)'}")
-         print(f"    - Anthropic: Manually handled with requests; ensure ANTHROPIC_API_KEY is set.")
-         print(f"    - DeepSeek Base URL: {DEEPSEEK_API_BASE_URL} {'(Client Initialized)' if deepseek_client else '(Key MISSING or Init Failed!)'}")
-         print(f"    - Gemini: {'(API Configured)' if GEMINI_API_KEY else '(Key MISSING!)'}")
-         # Note: Use waitress or gunicorn for production instead of Flask's built-in server
-         # Use threaded=True for better handling of concurrent requests if using Flask dev server
-         app.run(host='0.0.0.0', port=5002, debug=False, threaded=True)
+     print(f"--- Starting Quality Compute API Simulator ---")
+     print(f"--- Listening on: 0.0.0.0:5002 ---")
+     print(f"--- Database Path: {DB_PATH} ---")
+     print(f"--- Judge Model: {JUDGE_MODEL} ---")  # Fallback judge model
+     print(f"--- Default N for Best-of: {DEFAULT_N_VALUE} ---")
+     print(f"--- Max Workers for Parallel Calls: {MAX_WORKERS} ---")
+     print("--- Configured Providers & Status ---")
+     print(f"    - OpenAI Base URL: {MODEL_API_BASE_URL} {'(Key Found)' if OPENAI_API_KEY != 'dummy-openai-key' else '(Key MISSING!)'}")
+     print(f"    - xAI Base URL: {XAI_API_BASE_URL} {'(Key Found)' if XAI_API_KEY else '(Key MISSING!)'}")
+     print(f"    - Anthropic: Manually handled with requests; ensure ANTHROPIC_API_KEY is set.")
+     print(f"    - DeepSeek Base URL: {DEEPSEEK_API_BASE_URL} {'(Client Initialized)' if deepseek_client else '(Key MISSING or Init Failed!)'}")
+     print(f"    - Gemini: {'(API Configured)' if GEMINI_API_KEY else '(Key MISSING!)'}")
+     # Note: Use waitress or gunicorn for production instead of Flask's built-in server
+     # Use threaded=True for better handling of concurrent requests if using Flask dev server
+     app.run(host='0.0.0.0', port=5002, debug=False, threaded=True)
